@@ -51,13 +51,13 @@
         system:
         let
           pkgs = nixpkgsFor."${system}";
-          zig = (
+          zig-dev = (
             import ./zig.nix {
               stdenv = pkgs.stdenvNoCC;
               fetchzip = pkgs.fetchzip;
             }
           );
-          zls = (
+          zls-dev = (
             import ./zls.nix {
               stdenv = pkgs.stdenvNoCC;
               fetchzip = pkgs.fetchzip;
@@ -67,8 +67,9 @@
         {
           default = pkgs.mkShell {
             packages = [
-              zig
-              zls
+              zig-dev
+              zls-dev
+              pkgs.wakatime-cli
             ];
           };
         }

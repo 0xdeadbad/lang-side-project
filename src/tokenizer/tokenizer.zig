@@ -5,8 +5,8 @@ const Token = struct {
     loc: Loc,
 
     const Loc = struct {
-        line: usize,
-        column: usize,
+        start: usize,
+        end: usize,
     };
 
     const Tag = enum {
@@ -82,5 +82,90 @@ const Tokenizer = struct {
     current: usize,
     last: usize,
 
-    pub fn init(buffer: [:0]const u8) Tokenizer {}
+    const TokenizerError = error{
+        eof,
+    };
+
+    pub fn init(buffer: [:0]const u8) Tokenizer {
+        return .{
+            .buffer = buffer,
+            .current = 0,
+            .last = 0,
+        };
+    }
+
+    const State = enum {
+        start,
+        string,
+    };
+
+    pub fn next(self: *Tokenizer) Tokenizer!Token {
+        var tk = Token{
+            .tag = undefined,
+            .loc = .{
+                .start = 0,
+                .end = 0,
+            },
+        };
+
+        state: switch (State.start) {
+            .start => {
+                switch (self.peek()) {
+                    '"' => {
+                        self.advance();
+                        continue :state .string;
+                    },
+                    0 => continue :state .end,
+                    else => @panic("unimplemented"),
+                }
+            },
+            .string => {
+                if (self.advance() == '"') {
+                    tk.tag = .string;
+                    continue :state .end;
+                } else continue :state .string;
+            },
+            .end => {
+                tk.loc = .{
+                    .start = self.last,
+                    .end = self.current,
+                };
+
+                self.last = self.current;
+            },
+        }
+
+        return tk;
+    }
+
+    fn is_eof(self: *Tokenizer) bool {
+        return self.current >= self.buffer.len;
+    }
+
+    fn peek(self: *Tokenizer) TokenizerError!u8 {
+        if (self.is_eof()) {
+            return TokenizerError.eof;
+        }
+
+        return self.buffer[self.current];
+    }
+
+    fn advance(self: *Tokenizer) TokenizerError!u8 {
+        if (self.is_eof()) {
+            return TokenizerError.eof;
+        }
+        defer self.current += 1;
+
+        return self.buffer[self.current];
+    }
 };
+
+test "test string state" {
+    const src = "\"aaaaaa\"";
+
+    var tkz = Tokenizer.init(src);
+
+    const tk = try tkz.next();
+
+    std.debug.print("{any}", tk);
+}
