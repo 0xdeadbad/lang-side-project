@@ -63,15 +63,18 @@
               fetchzip = pkgs.fetchzip;
             }
           );
+          wakatime = pkgs.wakatime-cli;
+          mkShell = pkgs.mkShell;
         in
         {
-          default = pkgs.mkShell {
-            packages = [
-              zig-dev
-              zls-dev
-              pkgs.wakatime-cli
-            ];
-          };
+          default = (
+            import ./shell.nix {
+              inherit mkShell;
+              inherit zig-dev;
+              inherit zls-dev;
+              inherit wakatime;
+            }
+          );
         }
       );
     };
