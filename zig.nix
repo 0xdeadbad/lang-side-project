@@ -5,11 +5,11 @@
 
 stdenv.mkDerivation {
   pname = "Zig master branch build";
-  version = "0.14.0-dev.3222+8a3aebaee";
+  version = "0.14.0-dev.3271+bd237bced";
 
   src = fetchzip {
-    url = "https://ziglang.org/builds/zig-linux-x86-0.14.0-dev.3222+8a3aebaee.tar.xz";
-    hash = "sha256-lb7WUbESmuQ7KDxMvJ4OdKa6K6+elE0sOrZw5WuCjqI=";
+    url = "https://ziglang.org/builds/zig-linux-x86_64-0.14.0-dev.3271+bd237bced.tar.xz";
+    hash = "sha256-eICnZSd/aYOmUJ8HJqzSoQN1EIuU80GOa47W/7tOysM=";
   };
 
   phases = [
@@ -23,6 +23,5 @@ stdenv.mkDerivation {
 
     cp zig $out/bin
     cp -r lib $out/lib/zig
-    cp -r doc $out
   '';
 }

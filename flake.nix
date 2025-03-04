@@ -29,7 +29,7 @@
           pkgs = nixpkgsFor."${system}";
           zig = (
             import ./zig.nix {
-              stdenv = pkgs.stdenvNoCC;
+              stdenv = pkgs.stdenv;
               fetchzip = pkgs.fetchzip;
             }
           );
@@ -53,7 +53,7 @@
           pkgs = nixpkgsFor."${system}";
           zig-dev = (
             import ./zig.nix {
-              stdenv = pkgs.stdenvNoCC;
+              stdenv = pkgs.stdenv;
               fetchzip = pkgs.fetchzip;
             }
           );
