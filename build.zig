@@ -24,6 +24,11 @@ pub fn build(b: *std.Build) void {
     //     .optimize = optimize,
     // });
 
+    const prettizy_dep = b.dependency("prettizy", .{
+        .target = target,
+        .optimize = optimize,
+    });
+
     const parser = b.addStaticLibrary(.{
         .name = "parser",
         // In this case the main source file is merely a path, however, in more
@@ -51,6 +56,7 @@ pub fn build(b: *std.Build) void {
         .optimize = optimize,
     });
 
+    exe.root_module.addImport("prettizy", prettizy_dep.module("prettizy"));
     exe.root_module.addImport("parser", parser.root_module);
 
     // This declares intent for the executable to be installed into the

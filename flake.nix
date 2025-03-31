@@ -51,6 +51,7 @@
         system:
         let
           pkgs = nixpkgsFor."${system}";
+          mkShell = pkgs.mkShell;
           zig-dev = (
             import ./zig.nix {
               stdenv = pkgs.stdenv;
@@ -64,7 +65,7 @@
             }
           );
           wakatime = pkgs.wakatime-cli;
-          mkShell = pkgs.mkShell;
+          tree-sitter-zig = (with pkgs; tree-sitter-grammars.tree-sitter-zig);
         in
         {
           default = (
@@ -73,6 +74,7 @@
               inherit zig-dev;
               inherit zls-dev;
               inherit wakatime;
+              inherit tree-sitter-zig;
             }
           );
         }

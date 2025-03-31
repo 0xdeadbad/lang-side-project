@@ -7,12 +7,12 @@ pub const Token = struct {
     tag: Tag,
     loc: Loc,
 
-    const Loc = struct {
+    pub const Loc = struct {
         start: usize,
         end: usize,
     };
 
-    const Tag = enum {
+    pub const Tag = enum {
         eof,
 
         left_paren,
