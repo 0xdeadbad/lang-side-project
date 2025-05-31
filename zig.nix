@@ -4,12 +4,12 @@
 }:
 
 stdenv.mkDerivation {
-  pname = "Zig master branch build";
-  version = "0.14.0-dev.3271+bd237bced";
+  pname = "zig-bin";
+  version = "0.14.1";
 
   src = fetchzip {
-    url = "https://ziglang.org/builds/zig-linux-x86_64-0.14.0-dev.3271+bd237bced.tar.xz";
-    hash = "sha256-eICnZSd/aYOmUJ8HJqzSoQN1EIuU80GOa47W/7tOysM=";
+    url = "https://ziglang.org/download/0.14.1/zig-x86_64-linux-0.14.1.tar.xz";
+    hash = "sha256-4DtFNXBw+dDE6xClV+NFOTMn5Fn0g19i3mpE/bN4Qyk=";
   };
 
   phases = [

@@ -4,12 +4,12 @@
 }:
 
 stdenv.mkDerivation {
-  pname = "ZLS master branch build";
-  version = "0.14.0-dev.3222+8a3aebaee";
+  pname = "zls-bin";
+  version = "0.14.0";
 
   src = fetchzip {
-    url = "https://builds.zigtools.org/zls-linux-x86_64-0.14.0-dev.390+188a4c0.tar.xz";
-    hash = "sha256-NwWsOdC49RCnmUi+tOtU+RvJRP3hpfpFK5oxyUeuc/c=";
+    url = "https://builds.zigtools.org/zls-linux-x86_64-0.14.0.tar.xz";
+    hash = "sha256-8SwZ8BqqjB15bXhimWUqfWiQogmS0twbvehqVLzR7dw=";
     stripRoot = false;
   };
 
