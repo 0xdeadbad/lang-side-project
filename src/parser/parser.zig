@@ -3,7 +3,7 @@ const meta = std.meta;
 const Allocator = std.mem.Allocator;
 const ArrayList = std.ArrayList;
 
-const prettiziy = @import("prettizy");
+// const prettiziy = @import("prettizy");
 
 const tokenizer = @import("./tokenizer.zig");
 const Token = tokenizer.Token;
@@ -416,10 +416,10 @@ test "test parser" {
     var c = try Node.init(allocator, .let_decl, iexpr);
     defer c.deinit();
 
-    var string = std.ArrayList(u8).init(allocator);
-    try std.json.stringify(c, .{}, string.writer());
+    // var string = std.ArrayList(u8).init(allocator);
+    // try std.json.stringify(c, .{}, string.writer());
 
-    std.debug.print("{any}\n", .{string});
+    // std.debug.print("{any}\n", .{string});
 
     // const src =
     //     \\ fn main() : void {

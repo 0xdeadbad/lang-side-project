@@ -1,0 +1,17 @@
+name: "Zig run tests"
+on:
+    pull_request:
+    push:
+        branches:
+            - master
+
+jobs:
+    test:
+        runs-on: ubuntu-latest
+        name: Run Tokenizer tests
+        steps:
+            - uses: actions/checkout@v3
+            - uses: mlugg/setup-zig@v2
+              with:
+                  version: 0.14.1
+            - run: zig test src/parser/tokenizer.zig

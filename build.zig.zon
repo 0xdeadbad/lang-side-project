@@ -65,11 +65,11 @@
         //    // actually used.
         //    .lazy = false,
         //},
-        .prettizy = .{
-            .url = "https://github.com/javiorfo/prettizy/archive/refs/heads/master.tar.gz",
-            .hash = "prettizy-0.2.0-Fe_ubpw9AABtbRbv1mybjasVoKmKI3LGYP9O5BN9yZ1y",
-            // the hash will be suggested by zig build
-        },
+        // .prettizy = .{
+        //     .url = "https://github.com/javiorfo/prettizy/archive/refs/heads/master.tar.gz",
+        //     .hash = "prettizy-0.2.0-Fe_ubpw9AABtbRbv1mybjasVoKmKI3LGYP9O5BN9yZ1y",
+        //     // the hash will be suggested by zig build
+        // },
     },
 
     // Specifies the set of files and directories that are included in this package.
