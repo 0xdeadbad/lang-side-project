@@ -352,6 +352,22 @@ const NodePayload = union(NodeTag) {
     return_expr: struct {
         expr: ?*Node,
     },
+
+    pub fn get_tag(self: NodePayload) NodeTag {
+        return switch (self) {
+            .let_decl => |_| NodeTag.let_decl,
+            .bin_op => |_| NodeTag.bin_op,
+            .unary_left => |_| NodeTag.unary_left,
+            .block => |_| NodeTag.block,
+            .literal => |_| NodeTag.literal,
+            .if_expr => |_| NodeTag.if_expr,
+            .while_loop => |_| NodeTag.while_loop,
+            .for_loop => |_| NodeTag.for_loop,
+            .fn_decl => |_| NodeTag.fn_decl,
+            .fn_call => |_| NodeTag.fn_call,
+            .return_expr => |_| NodeTag.return_expr,
+        };
+    }
 };
 
 const NodeKind = enum {
@@ -366,24 +382,17 @@ pub const Node = struct {
     kind: NodeKind,
     payload: NodePayload,
 
-    pub fn init(allocator: Allocator, tag: NodeTag, init_expr: anytype) !*Node {
+    pub fn init(allocator: Allocator, payload: NodePayload) !*Node {
         var node = try allocator.create(Node);
+        const tag = payload.get_tag();
+
         node.allocator = allocator;
 
-        switch (tag) {
-            .let_decl => {
-                node.kind = .Stmt;
-                node.payload = .{
-                    .let_decl = .{
-                        .name = @field(init_expr, "name"),
-                    },
-                };
-            },
-            else => {
-                std.debug.print("init for node ({s}) not implemented yet\n", .{@tagName(tag)});
-                @panic("init switch NodeTag fail");
-            },
-        }
+        node.kind = switch (tag) {
+            .let_decl, .block, .while_loop, .for_loop, .fn_decl => NodeKind.Stmt,
+            .bin_op, .if_expr, .unary_left, .literal, .fn_call, .return_expr => NodeKind.Expr,
+            else => @panic("should not reach here"),
+        };
 
         return node;
     }
@@ -395,72 +404,124 @@ pub const Node = struct {
     }
 };
 
-test "test parser" {
-    const testing = std.testing;
-    const allocator = testing.allocator;
-
-    var tk = try allocator.create(Token);
-
-    tk.tag = .string;
-    tk.loc = .{
-        .end = 0,
-        .start = 0,
+test "test NodePayload.get_tag(let_decl)" {
+    const np = NodePayload{
+        .let_decl = .{
+            .name = null,
+        },
     };
 
-    defer allocator.destroy(tk);
+    try std.testing.expectEqual(NodeTag.let_decl, np.get_tag());
+}
 
-    const iexpr = .{
-        .name = @constCast(tk),
+test "test NodePayload.get_tag(bin_op)" {
+    const np = NodePayload{
+        .bin_op = .{
+            .op = .add,
+            .left = null,
+            .right = null,
+        },
     };
 
-    var c = try Node.init(allocator, .let_decl, iexpr);
-    defer c.deinit();
+    try std.testing.expectEqual(NodeTag.bin_op, np.get_tag());
+}
 
-    // var string = std.ArrayList(u8).init(allocator);
-    // try std.json.stringify(c, .{}, string.writer());
+test "test NodePayload.get_tag(unary_left)" {
+    const np = NodePayload{
+        .unary_left = .{
+            .op = .inc,
+            .left = null,
+        },
+    };
 
-    // std.debug.print("{any}\n", .{string});
+    try std.testing.expectEqual(NodeTag.unary_left, np.get_tag());
+}
 
-    // const src =
-    //     \\ fn main() : void {
-    //     \\   let variable: int = (4 * 2) + 5;
-    //     \\   variable = 4;
-    //     \\   variable = 5 * 2 * ( 5 + 3 );
-    //     \\   let test = 5;
-    //     \\   if ((x > 5) || (x < 2)) {
-    //     \\     let y = (5 + 1) - 2;
-    //     \\   } else {
-    //     \\     let h = Nil;
-    //     \\   }
-    //     \\   while (7 < x) {
-    //     \\     --x;
-    //     \\     x++;
-    //     \\   }
-    //     \\   for (let x = 10; x < 10; ++x) {
-    //     \\     let str = "hello";
-    //     \\     let a = "test";
-    //     \\   }
-    //     \\   // comment
-    //     \\   /* comment */
-    //     \\ }
-    //     \\ fn test(a: int, b: uint, c: char) : uint {
-    //     \\   print("a b c", -1, --1, x + 5);
-    //     \\   return b;
-    //     \\ }
-    //     \\ fun TEST2() : int {
-    //     \\   if(true) {
-    //     \\     0
-    //     \\   } else {
-    //     \\     1
-    //     \\   }
-    //     \\   101
-    //     \\ }
-    //     \\ // fn TEST03() : int {
-    //     \\ //   return if (false) { 10 } else { 20 };
-    //     \\ // }
-    // ;
+test "test NodePayload.get_tag(block)" {
+    const np = NodePayload{
+        .block = .{
+            .stmts = NodeArrayList.init(std.heap.page_allocator),
+        },
+    };
 
-    // const src = "let abc: int;";
+    try std.testing.expectEqual(NodeTag.block, np.get_tag());
+}
 
-    // _ = Ast.generate(allocator, src);
+test "test NodePayload.get_tag(literal)" {
+    const np = NodePayload{
+        .literal = .{
+            .value = .{ .int = 42 },
+        },
+    };
+
+    try std.testing.expectEqual(NodeTag.literal, np.get_tag());
+}
+
+test "test NodePayload.get_tag(if_expr)" {
+    const np = NodePayload{
+        .if_expr = .{
+            .condition = null,
+            .then_branch = null,
+            .else_branch = null,
+        },
+    };
+
+    try std.testing.expectEqual(NodeTag.if_expr, np.get_tag());
+}
+
+test "test NoudePayload.get_tag(while_loop)" {
+    const np = NodePayload{
+        .while_loop = .{
+            .condition = null,
+            .body = null,
+        },
+    };
+
+    try std.testing.expectEqual(NodeTag.while_loop, np.get_tag());
+}
+
+test "test NodePayload.get_tag(for_loop)" {
+    const np = NodePayload{
+        .for_loop = .{
+            .initializer = null,
+            .condition = null,
+            .apply = null,
+            .body = null,
+        },
+    };
+
+    try std.testing.expectEqual(NodeTag.for_loop, np.get_tag());
+}
+
+test "test NodePayload.get_tag(fn_decl)" {
+    const np = NodePayload{
+        .fn_decl = .{
+            .name = null,
+            .fn_args = NodeArrayList.init(std.heap.page_allocator),
+            .body = null,
+        },
+    };
+
+    try std.testing.expectEqual(NodeTag.fn_decl, np.get_tag());
+}
+
+test "test NodePayload.get_tag(fn_call)" {
+    const np = NodePayload{
+        .fn_call = .{
+            .name = null,
+            .call_args = NodeArrayList.init(std.heap.page_allocator),
+        },
+    };
+
+    try std.testing.expectEqual(NodeTag.fn_call, np.get_tag());
+}
+
+test "test NodePayload.get_tag(return_expr)" {
+    const np = NodePayload{
+        .return_expr = .{
+            .expr = null,
+        },
+    };
+
+    try std.testing.expectEqual(NodeTag.return_expr, np.get_tag());
 }
