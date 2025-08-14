@@ -15,12 +15,14 @@ const Ast = struct {
     allocator: Allocator,
     tokens: ArrayList(Token),
     current: usize,
+    src: [:0]const u8,
 
     pub fn generate(allocator: Allocator, src: [:0]const u8) !ArrayList(?*Node) {
         var ast = try allocator.create(Ast);
         defer allocator.destroy(ast);
 
         ast.allocator = allocator;
+        ast.src = src;
 
         var nodes = ArrayList(?*Node).init(allocator);
 
@@ -51,10 +53,10 @@ const Ast = struct {
     fn statement(self: *Ast) ?*Node {
         if (self.check(&.{ TokenTag.for_t, TokenTag.while_t, TokenTag.fun_t, TokenTag.left_brace, TokenTag.if_t })) |t|
             return switch (t) {
-                TokenTag.for_t => self.for_stmt(),
-                TokenTag.while_t => self.while_stmt(),
-                TokenTag.fun_t => self.fun_stmt(),
-                TokenTag.if_t => self.if_stmt(),
+                TokenTag.for_t => self.stmt_for(),
+                TokenTag.while_t => self.stmt_while(),
+                TokenTag.fun_t => self.stmt_fun(),
+                TokenTag.if_t => self.stmt_if(),
                 TokenTag.left_brace => self.block(),
                 else => @panic("not supposed to reach here"),
             }
@@ -64,40 +66,8 @@ const Ast = struct {
         return self.expr_stmt();
     }
 
-    fn let_decl(self: *Ast) ?*Node {
-        _ = self.consume(TokenTag.let_t, "expected let to consume");
-        const name = self.consume(TokenTag.identifier, "expected identifier after let token");
-        var type_ann: ?*Token = null;
-        var init: ?*Node = null;
-
-        if (self.peek()) |p| {
-            if (p.tag == TokenTag.colon) {
-                self.skip();
-                type_ann = self.consume(.identifier, "expected identifier after colon");
-            }
-        }
-
-        if (self.peek()) |p| {
-            if (p.tag == .equal) {
-                self.skip();
-                init = self.expression();
-            }
-        }
-
-        _ = self.consume(.semicolon, "expected semicolon");
-
-        var r = Node.init(self.allocator) catch @panic("shiiiit");
-
-        r.kind = .Stmt;
-        r.payload = .{
-            .let_decl = .{
-                .name = name,
-                .init = if (init) |t| t else null,
-                .type_ann = type_ann,
-            },
-        };
-
-        return r;
+    fn let_decl(_: *Ast) ?*Node {
+        return null;
     }
 
     fn typedef_decl(_: *Ast) ?*Node {
@@ -193,27 +163,27 @@ const Ast = struct {
             return switch (tk_tag) {
                 TokenTag.int2 => Node.init(self.allocator, .{
                     .literal = .{
-                        .value = .{ .int = try std.fmt.parseInt(i64, self.peek() orelse @panic("expected token"), 2) },
+                        .value = .{ .int = std.fmt.parseInt(i64, self.get_token_lexeme(self.next().?), 2) catch @panic("could not parse int2") },
                     },
                 }) catch @panic("could not create node for int2"),
                 TokenTag.int8 => Node.init(self.allocator, .{
                     .literal = .{
-                        .value = .{ .int = try std.fmt.parseInt(i64, self.peek() orelse @panic("expected token"), 8) },
+                        .value = .{ .int = std.fmt.parseInt(i64, self.get_token_lexeme(self.next().?), 8) catch @panic("could not parse int8") },
                     },
                 }) catch @panic("could not create node for int8"),
                 TokenTag.int10 => Node.init(self.allocator, .{
                     .literal = .{
-                        .value = .{ .int = try std.fmt.parseInt(i64, self.peek() orelse @panic("expected token"), 10) },
+                        .value = .{ .int = std.fmt.parseInt(i64, self.get_token_lexeme(self.next().?), 10) catch @panic("could not parse int10") },
                     },
                 }) catch @panic("could not create node for int10"),
                 TokenTag.int16 => Node.init(self.allocator, .{
                     .literal = .{
-                        .value = .{ .int = try std.fmt.parseInt(i64, self.peek() orelse @panic("expected token"), 16) },
+                        .value = .{ .int = std.fmt.parseInt(i64, self.get_token_lexeme(self.next().?), 16) catch @panic("could not parse int16") },
                     },
                 }) catch @panic("could not create node for int16"),
                 TokenTag.string => Node.init(self.allocator, .{
                     .literal = .{
-                        .value = .{ .string = self.peek() orelse @panic("expected token").lexeme },
+                        .value = .{ .string = self.get_token_lexeme(self.next().?) },
                     },
                 }) catch @panic("could not create node for string"),
                 else => @panic("not implemented"),
@@ -280,6 +250,10 @@ const Ast = struct {
                 return n;
         @panic(msg);
     }
+
+    fn get_token_lexeme(self: *Ast, tk: *Token) []const u8 {
+        return self.src[tk.loc.start..tk.loc.end];
+    }
 };
 
 const NodeTag = enum {
@@ -336,7 +310,7 @@ const NodePayload = union(NodeTag) {
             float,
         };
         value: union(LiteralTag) {
-            string: [:0]const u8,
+            string: []const u8,
             int: i64,
             float: f64,
         },
@@ -358,12 +332,12 @@ const NodePayload = union(NodeTag) {
     },
     fn_decl: struct {
         name: ?*Node,
-        fn_args: ArrayList(?*Node),
+        fn_args: ?ArrayList(?*Node),
         body: ?*Node,
     },
     fn_call: struct {
         name: ?*Node,
-        call_args: ArrayList(?*Node),
+        call_args: ?ArrayList(?*Node),
     },
     return_expr: struct {
         expr: ?*Node,
@@ -390,7 +364,7 @@ const NodePayload = union(NodeTag) {
             .let_decl => |_| NodeKind.Stmt,
             .bin_op => |_| NodeKind.Expr,
             .unary_left => |_| NodeKind.Expr,
-            .block => |_| NodeKind.Stmt,
+            .block => |_| NodeKind.ExprStmt,
             .literal => |_| NodeKind.Expr,
             .if_expr => |_| NodeKind.ExprStmt,
             .while_loop => |_| NodeKind.Stmt,
@@ -416,7 +390,7 @@ pub const Node = struct {
         var node = try allocator.create(Node);
 
         node.allocator = allocator;
-        node.kind = payload.get_kind();
+        node.payload = payload;
 
         return node;
     }
@@ -590,7 +564,7 @@ test "test NodePayload.get_kind(block)" {
         },
     };
 
-    try std.testing.expectEqual(NodeKind.Stmt, np.get_kind());
+    try std.testing.expectEqual(NodeKind.ExprStmt, np.get_kind());
 }
 
 test "test NodePayload.get_kind(literal)" {
@@ -643,7 +617,7 @@ test "test NodePayload.get_kind(fn_decl)" {
     const np = NodePayload{
         .fn_decl = .{
             .name = null,
-            .fn_args = NodeArrayList.init(std.heap.page_allocator),
+            .fn_args = null,
             .body = null,
         },
     };
@@ -655,7 +629,7 @@ test "test NodePayload.get_kind(fn_call)" {
     const np = NodePayload{
         .fn_call = .{
             .name = null,
-            .call_args = NodeArrayList.init(std.heap.page_allocator),
+            .call_args = null,
         },
     };
 
@@ -670,4 +644,21 @@ test "test NodePayload.get_kind(return_expr)" {
     };
 
     try std.testing.expectEqual(NodeKind.ExprStmt, np.get_kind());
+}
+
+test "test Ast.expr_primary(int2)" {
+    // const allocator = std.testing.allocator;
+    // const ast = Ast{
+    //     .allocator = allocator,
+    //     .tokens = ArrayList(Token).init(allocator),
+    //     .current = 0,
+    //     .src = "0b101010",
+    // };
+
+    // const pnodes = Ast.generate(allocator, ast.src) catch |err| {
+    //     std.debug.print("Error generating AST: {}\n", .{err});
+    //     return;
+    // };
+
+    // try std.testing.expectEqual(1, pnodes.items.len);
 }
