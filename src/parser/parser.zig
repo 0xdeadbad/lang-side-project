@@ -189,19 +189,35 @@ const Ast = struct {
     }
 
     fn expr_primary(self: *Ast) ?*Node {
-        if (self.check(&.{ TokenTag.int2, TokenTag.int8, TokenTag.int10, TokenTag.int16, TokenTag.string, TokenTag.bool_t, TokenTag.nil_t })) |tk| {
-            switch (tk) {
-                TokenTag.int2, TokenTag.int8, TokenTag.int10, TokenTag.int16 => @panic("not implemented"),
-                TokenTag.string => return Node{
-                    .kind = .Expr,
-                    .payload = .{
-                        .literal = .{
-                            .value = .{ .string = "test aa" },
-                        },
+        if (self.check(&.{ TokenTag.int2, TokenTag.int8, TokenTag.int10, TokenTag.int16, TokenTag.string, TokenTag.bool_t, TokenTag.nil_t })) |tk_tag| {
+            return switch (tk_tag) {
+                TokenTag.int2 => Node.init(self.allocator, .{
+                    .literal = .{
+                        .value = .{ .int = try std.fmt.parseInt(i64, self.peek() orelse @panic("expected token"), 2) },
                     },
-                },
+                }) catch @panic("could not create node for int2"),
+                TokenTag.int8 => Node.init(self.allocator, .{
+                    .literal = .{
+                        .value = .{ .int = try std.fmt.parseInt(i64, self.peek() orelse @panic("expected token"), 8) },
+                    },
+                }) catch @panic("could not create node for int8"),
+                TokenTag.int10 => Node.init(self.allocator, .{
+                    .literal = .{
+                        .value = .{ .int = try std.fmt.parseInt(i64, self.peek() orelse @panic("expected token"), 10) },
+                    },
+                }) catch @panic("could not create node for int10"),
+                TokenTag.int16 => Node.init(self.allocator, .{
+                    .literal = .{
+                        .value = .{ .int = try std.fmt.parseInt(i64, self.peek() orelse @panic("expected token"), 16) },
+                    },
+                }) catch @panic("could not create node for int16"),
+                TokenTag.string => Node.init(self.allocator, .{
+                    .literal = .{
+                        .value = .{ .string = self.peek() orelse @panic("expected token").lexeme },
+                    },
+                }) catch @panic("could not create node for string"),
                 else => @panic("not implemented"),
-            }
+            };
         }
 
         return null;
@@ -368,6 +384,22 @@ const NodePayload = union(NodeTag) {
             .return_expr => |_| NodeTag.return_expr,
         };
     }
+
+    pub fn get_kind(self: NodePayload) NodeKind {
+        return switch (self) {
+            .let_decl => |_| NodeKind.Stmt,
+            .bin_op => |_| NodeKind.Expr,
+            .unary_left => |_| NodeKind.Expr,
+            .block => |_| NodeKind.Stmt,
+            .literal => |_| NodeKind.Expr,
+            .if_expr => |_| NodeKind.ExprStmt,
+            .while_loop => |_| NodeKind.Stmt,
+            .for_loop => |_| NodeKind.Stmt,
+            .fn_decl => |_| NodeKind.Stmt,
+            .fn_call => |_| NodeKind.Expr,
+            .return_expr => |_| NodeKind.ExprStmt,
+        };
+    }
 };
 
 const NodeKind = enum {
@@ -378,21 +410,13 @@ const NodeKind = enum {
 
 pub const Node = struct {
     allocator: Allocator,
-
-    kind: NodeKind,
     payload: NodePayload,
 
     pub fn init(allocator: Allocator, payload: NodePayload) !*Node {
         var node = try allocator.create(Node);
-        const tag = payload.get_tag();
 
         node.allocator = allocator;
-
-        node.kind = switch (tag) {
-            .let_decl, .block, .while_loop, .for_loop, .fn_decl => NodeKind.Stmt,
-            .bin_op, .if_expr, .unary_left, .literal, .fn_call, .return_expr => NodeKind.Expr,
-            else => @panic("should not reach here"),
-        };
+        node.kind = payload.get_kind();
 
         return node;
     }
@@ -524,4 +548,126 @@ test "test NodePayload.get_tag(return_expr)" {
     };
 
     try std.testing.expectEqual(NodeTag.return_expr, np.get_tag());
+}
+
+test "test NodePayload.get_kind(let_decl)" {
+    const np = NodePayload{
+        .let_decl = .{
+            .name = null,
+        },
+    };
+
+    try std.testing.expectEqual(NodeKind.Stmt, np.get_kind());
+}
+
+test "test NodePayload.get_kind(bin_op)" {
+    const np = NodePayload{
+        .bin_op = .{
+            .op = .add,
+            .left = null,
+            .right = null,
+        },
+    };
+
+    try std.testing.expectEqual(NodeKind.Expr, np.get_kind());
+}
+
+test "test NodePayload.get_kind(unary_left)" {
+    const np = NodePayload{
+        .unary_left = .{
+            .op = .inc,
+            .left = null,
+        },
+    };
+
+    try std.testing.expectEqual(NodeKind.Expr, np.get_kind());
+}
+
+test "test NodePayload.get_kind(block)" {
+    const np = NodePayload{
+        .block = .{
+            .stmts = NodeArrayList.init(std.heap.page_allocator),
+        },
+    };
+
+    try std.testing.expectEqual(NodeKind.Stmt, np.get_kind());
+}
+
+test "test NodePayload.get_kind(literal)" {
+    const np = NodePayload{
+        .literal = .{
+            .value = .{ .int = 42 },
+        },
+    };
+
+    try std.testing.expectEqual(NodeKind.Expr, np.get_kind());
+}
+
+test "test NodePayload.get_kind(if_expr)" {
+    const np = NodePayload{
+        .if_expr = .{
+            .condition = null,
+            .then_branch = null,
+            .else_branch = null,
+        },
+    };
+
+    try std.testing.expectEqual(NodeKind.ExprStmt, np.get_kind());
+}
+
+test "test NodePayload.get_kind(while_loop)" {
+    const np = NodePayload{
+        .while_loop = .{
+            .condition = null,
+            .body = null,
+        },
+    };
+
+    try std.testing.expectEqual(NodeKind.Stmt, np.get_kind());
+}
+
+test "test NodePayload.get_kind(for_loop)" {
+    const np = NodePayload{
+        .for_loop = .{
+            .initializer = null,
+            .condition = null,
+            .apply = null,
+            .body = null,
+        },
+    };
+
+    try std.testing.expectEqual(NodeKind.Stmt, np.get_kind());
+}
+
+test "test NodePayload.get_kind(fn_decl)" {
+    const np = NodePayload{
+        .fn_decl = .{
+            .name = null,
+            .fn_args = NodeArrayList.init(std.heap.page_allocator),
+            .body = null,
+        },
+    };
+
+    try std.testing.expectEqual(NodeKind.Stmt, np.get_kind());
+}
+
+test "test NodePayload.get_kind(fn_call)" {
+    const np = NodePayload{
+        .fn_call = .{
+            .name = null,
+            .call_args = NodeArrayList.init(std.heap.page_allocator),
+        },
+    };
+
+    try std.testing.expectEqual(NodeKind.Expr, np.get_kind());
+}
+
+test "test NodePayload.get_kind(return_expr)" {
+    const np = NodePayload{
+        .return_expr = .{
+            .expr = null,
+        },
+    };
+
+    try std.testing.expectEqual(NodeKind.ExprStmt, np.get_kind());
 }
