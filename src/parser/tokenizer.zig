@@ -114,12 +114,14 @@ pub const Tokenizer = struct {
     buffer: [:0]const u8,
     current: usize,
     last: usize,
+    eof: bool,
 
     pub fn init(buffer: [:0]const u8) Tokenizer {
         return .{
             .buffer = buffer,
             .current = 0,
             .last = 0,
+            .eof = false,
         };
     }
 
@@ -146,6 +148,9 @@ pub const Tokenizer = struct {
                 .end = undefined,
             },
         };
+
+        if (self.eof)
+            return null;
 
         state: switch (State.start) {
             .start => {
@@ -420,6 +425,9 @@ pub const Tokenizer = struct {
                 tk.loc.start = self.last;
                 tk.loc.end = self.current;
                 self.last = self.current;
+
+                if (tk.tag == .eof)
+                    self.eof = true;
             },
         }
 
@@ -691,49 +699,49 @@ test "test arrows" {
     try testing.expectEqual(Token.Tag.eof, eof.tag);
 }
 
-// test "visual test" {
-//     const src =
-//         \\ fn main() : void {
-//         \\   let variable: int = (4 * 2) + 5;
-//         \\   variable = 4;
-//         \\   variable = 5 * 2 * ( 5 + 3 );
-//         \\   let test = 5;
-//         \\   if ((x > 5) || (x < 2)) {
-//         \\     let y = (5 + 1) - 2;
-//         \\   } else {
-//         \\     let h = Nil;
-//         \\   }
-//         \\   while (7 < x) {
-//         \\     --x;
-//         \\     x++;
-//         \\   }
-//         \\   for (let x = 10; x < 10; ++x) {
-//         \\     let str = "hello";
-//         \\     let a = "test";
-//         \\   }
-//         \\   // comment
-//         \\   /* comment */
-//         \\ }
-//         \\ fn test(a: int, b: uint, c: char) : uint {
-//         \\   print("a b c", -1, --1, x + 5);
-//         \\   return b;
-//         \\ }
-//         \\ fun TEST2() : int {
-//         \\   if(true) {
-//         \\     0
-//         \\   } else {
-//         \\     1
-//         \\   }
-//         \\   101
-//         \\ }
-//         \\ // fn TEST03() : int {
-//         \\ //   return if (false) { 10 } else { 20 };
-//         \\ // }
-//         \\ definetype SomeType = int;
-//     ;
+test "visual test" {
+    const src =
+        \\ fn main() : void {
+        \\   let variable: int = (4 * 2) + 5;
+        \\   variable = 4;
+        \\   variable = 5 * 2 * ( 5 + 3 );
+        \\   let test = 5;
+        \\   if ((x > 5) || (x < 2)) {
+        \\     let y = (5 + 1) - 2;
+        \\   } else {
+        \\     let h = Nil;
+        \\   }
+        \\   while (7 < x) {
+        \\     --x;
+        \\     x++;
+        \\   }
+        \\   for (let x = 10; x < 10; ++x) {
+        \\     let str = "hello";
+        \\     let a = "test";
+        \\   }
+        \\   // comment
+        \\   /* comment */
+        \\ }
+        \\ fn test(a: int, b: uint, c: char) : uint {
+        \\   print("a b c", -1, --1, x + 5);
+        \\   return b;
+        \\ }
+        \\ fun TEST2() : int {
+        \\   if(true) {
+        \\     0
+        \\   } else {
+        \\     1
+        \\   }
+        \\   101
+        \\ }
+        \\ // fn TEST03() : int {
+        \\ //   return if (false) { 10 } else { 20 };
+        \\ // }
+        \\ definetype SomeType = int;
+    ;
 
-//     var tkz = Tokenizer.init(src);
+    var tkz = Tokenizer.init(src);
 
-//     while (tkz.next()) |tk|
-//         _ = tk;
-// }
+    while (tkz.next()) |tk|
+        _ = tk;
+}
