@@ -78,6 +78,12 @@ pub const Token = struct {
         typeann_t,
         typedef_t,
         void_t,
+        defun_t,
+        case_t,
+        lambda_t,
+        set_t,
+        setq_t,
+        setf_t,
 
         identifier,
         string,
@@ -107,6 +113,12 @@ pub const Token = struct {
         .{ "definetype", .typedef_t },
         .{ "break", .break_t },
         .{ "continue", .continue_t },
+        .{ "defun", .defun_t },
+        .{ "case", .case_t },
+        .{ "lambda", .lambda_t },
+        .{ "set", .set_t },
+        .{ "setq", .setq_t },
+        .{ "setf", .setf_t },
     });
 };
 
@@ -199,7 +211,7 @@ pub const Tokenizer = struct {
                     },
                 }
             },
-            .string => if (self.advance() == '"')
+            .string => if (self.peek() != 0 and self.advance() == '"')
                 continue :state .end
             else
                 continue :state .string,
@@ -421,28 +433,28 @@ pub const Tokenizer = struct {
                 self.last = self.current;
                 continue :state .start;
             },
-            .end => {
-                tk.loc.start = self.last;
-                tk.loc.end = self.current;
-                self.last = self.current;
-
-                if (tk.tag == .eof)
-                    self.eof = true;
-            },
+            .end => {},
         }
+
+        tk.loc.start = self.last;
+        tk.loc.end = self.current;
+        self.last = self.current;
+
+        if (tk.tag == .eof)
+            self.eof = true;
 
         return tk;
     }
 
-    inline fn is_eof(self: *Tokenizer) bool {
+    fn is_eof(self: *Tokenizer) bool {
         return self.current >= self.buffer.len;
     }
 
-    inline fn peek(self: *Tokenizer) u8 {
+    fn peek(self: *Tokenizer) u8 {
         return if (self.is_eof()) 0 else self.buffer[self.current];
     }
 
-    inline fn advance(self: *Tokenizer) u8 {
+    fn advance(self: *Tokenizer) u8 {
         if (self.is_eof())
             return 0;
         defer self.current += 1;
@@ -450,7 +462,7 @@ pub const Tokenizer = struct {
         return self.buffer[self.current];
     }
 
-    inline fn skip(self: *Tokenizer, n: usize) void {
+    fn skip(self: *Tokenizer, n: usize) void {
         const s = self.current + n;
         if (s > self.buffer.len)
             self.current = self.buffer.len
@@ -668,19 +680,29 @@ test "test reject comments" {
 test "test keywords" {
     const testing = std.testing;
 
-    const src = "for   if  while     f0r";
+    const src = "for if while f0r defun case set setq setf";
 
     var tkz = Tokenizer.init(src);
     const tk_for = tkz.next().?;
     const tk_if = tkz.next().?;
     const tk_while = tkz.next().?;
     const tk_f0r = tkz.next().?;
+    const tk_defun = tkz.next().?;
+    const tk_case = tkz.next().?;
+    const tk_set = tkz.next().?;
+    const tk_setq = tkz.next().?;
+    const tk_setf = tkz.next().?;
     const eof = tkz.next().?;
 
     try testing.expectEqual(Token.Tag.for_t, tk_for.tag);
     try testing.expectEqual(Token.Tag.if_t, tk_if.tag);
     try testing.expectEqual(Token.Tag.while_t, tk_while.tag);
     try testing.expectEqual(Token.Tag.identifier, tk_f0r.tag);
+    try testing.expectEqual(Token.Tag.defun_t, tk_defun.tag);
+    try testing.expectEqual(Token.Tag.case_t, tk_case.tag);
+    try testing.expectEqual(Token.Tag.set_t, tk_set.tag);
+    try testing.expectEqual(Token.Tag.setq_t, tk_setq.tag);
+    try testing.expectEqual(Token.Tag.setf_t, tk_setf.tag);
     try testing.expectEqual(Token.Tag.eof, eof.tag);
 }
 
