@@ -23,22 +23,46 @@ const Ast = struct {
 
         ast.allocator = allocator;
         ast.src = src;
+        ast.current = 0;
 
         var nodes = ArrayList(?*Node).init(allocator);
 
         var tkz = Tokenizer.init(src);
         ast.tokens = ArrayList(Token).init(allocator);
 
+        std.debug.print("Generating tokens...\n", .{});
         while (tkz.next()) |token|
-            try ast.tokens.append(token);
+            if (token.tag == TokenTag.eof) {
+                try ast.tokens.append(token);
+                std.debug.print("EOF token reached, stopping token generation.\n", .{});
+                break;
+            } else try ast.tokens.append(token);
+
+        std.debug.print("Token generation complete, generated {} tokens.\n", .{ast.tokens.items.len});
+
+        for (ast.tokens.items) |token|
+            std.debug.print("Token: {s}\n", .{@tagName(token.tag)});
+
+        // while (tkz.next()) |token|
+        //     try ast.tokens.append(token);
 
         while (!ast.is_eof())
-            try nodes.append(ast.declaration());
+            if (ast.declaration()) |node| {
+                std.debug.print("Generated node: {s}\n", .{@tagName(node.payload.get_tag())});
+                try nodes.append(node);
+            } else {
+                std.debug.print("No node generated, skipping...\n", .{});
+                break;
+            };
+
+        std.debug.print("AST generation complete, generated {} nodes.\n", .{nodes.items.len});
 
         return nodes;
     }
 
     fn declaration(self: *Ast) ?*Node {
+        std.debug.print("\nparsing declaration...\n", .{});
+
         if (self.check(&.{ TokenTag.let_t, TokenTag.typedef_t })) |t| {
             return switch (t) {
                 TokenTag.let_t => self.let_decl(),
@@ -47,6 +71,9 @@ const Ast = struct {
             };
         }
 
+        std.debug.print("lexeme is: {s}\n", .{self.get_token_lexeme(self.peek().?)});
+
+        std.debug.print("not a declaration, parsing statement...\n", .{});
         return self.statement();
     }
 
@@ -66,32 +93,63 @@ const Ast = struct {
         return self.expr_stmt();
     }
 
-    fn let_decl(_: *Ast) ?*Node {
-        return null;
-    }
+    fn let_decl(self: *Ast) ?*Node {
+        std.debug.print("parsing let declaration...\n", .{});
 
-    fn typedef_decl(_: *Ast) ?*Node {
-        return null;
-    }
-
-    fn expression(self: *Ast) ?*Node {
+        _ = self.consume(TokenTag.let_t, "failed to consume let token");
+        const name = self.consume(TokenTag.identifier, "failed to consume identifier after let");
+        var type_ann: ?*Node = null;
         if (self.peek()) |tk| {
-            switch (tk.tag) {
-                TokenTag.identifier => {
-                    self.consume(TokenTag.identifier, "failed to consume identifier");
-                    if (self.peek()) |tkn|
-                        switch (tkn.tag) {
-                            TokenTag.left_paren => {},
-                            TokenTag.dec, TokenTag.inc => {},
-                            else => {},
-                        };
-                },
-                TokenTag.return_t => self.expr_return(),
-                else => {},
+            if (tk.tag == TokenTag.colon) {
+                _ = self.next(); // consume the colon
+                const type_ident = self.consume(TokenTag.identifier, "failed to consume identifier after colon in let declaration");
+                type_ann = Node.init(self.allocator, .{
+                    .literal = .{
+                        .value = .{ .string = self.get_token_lexeme(type_ident) },
+                    },
+                }) catch @panic("could not create node for type annotation in let declaration");
             }
-        } else return null;
+        }
+        var init: ?*Node = null;
+        if (self.peek()) |tk| {
+            if (tk.tag == TokenTag.equal) {
+                _ = self.next(); // consume the equal token
+                init = self.expression() orelse @panic("failed to parse expression after equal in let declaration");
+            }
+        }
 
-        return self.stmt_assignment();
+        _ = self.consume(TokenTag.semicolon, "failed to consume semicolon after let declaration");
+
+        return Node.init(self.allocator, .{
+            .let_decl = .{
+                .name = name,
+                .init = init,
+                .type_ann = type_ann,
+            },
+        }) catch @panic("could not create node for let declaration");
+    }
+
+    fn typedef_decl(self: *Ast) ?*Node {
+        std.debug.print("parsing typedef declaration...\n", .{});
+
+        _ = self.consume(TokenTag.typedef_t, "failed to consume typedef token");
+        const name = self.consume(TokenTag.identifier, "failed to consume identifier after typedef");
+        _ = self.consume(TokenTag.equal, "failed to consume equal token after typedef identifier");
+        const ident = self.consume(TokenTag.identifier, "failed to consume identifier after equal token in typedef");
+        _ = self.consume(TokenTag.semicolon, "failed to consume semicolon after typedef identifier");
+
+        std.debug.print("typedef name: {s}\ntype: {s}\n", .{ self.get_token_lexeme(name), self.get_token_lexeme(ident) });
+
+        return Node.init(self.allocator, .{
+            .typedef_stmt = .{
+                .name = name,
+                .type_ann = ident,
+            },
+        }) catch @panic("could not create node for typedef declaration");
+    }
+
+    fn expression(_: *Ast) ?*Node {
+        return null;
     }
 
     fn expr_fn_call(_: *Ast) ?*Node {
@@ -268,6 +326,7 @@ const NodeTag = enum {
     fn_decl,
     fn_call,
     return_expr,
+    typedef_stmt,
 };
 
 const NodePayload = union(NodeTag) {
@@ -342,6 +401,10 @@ const NodePayload = union(NodeTag) {
     return_expr: struct {
         expr: ?*Node,
     },
+    typedef_stmt: struct {
+        name: ?*Token,
+        type_ann: ?*Token,
+    },
 
     pub fn get_tag(self: NodePayload) NodeTag {
         return switch (self) {
@@ -356,6 +419,7 @@ const NodePayload = union(NodeTag) {
             .fn_decl => |_| NodeTag.fn_decl,
             .fn_call => |_| NodeTag.fn_call,
             .return_expr => |_| NodeTag.return_expr,
+            .typedef_stmt => |_| NodeTag.typedef_stmt,
         };
     }
 
@@ -372,6 +436,7 @@ const NodePayload = union(NodeTag) {
             .fn_decl => |_| NodeKind.Stmt,
             .fn_call => |_| NodeKind.Expr,
             .return_expr => |_| NodeKind.ExprStmt,
+            .typedef_stmt => |_| NodeKind.Stmt,
         };
     }
 };
@@ -385,6 +450,19 @@ const NodeKind = enum {
 pub const Node = struct {
     allocator: Allocator,
     payload: NodePayload,
+
+    const NodeAnnotation = struct {
+        const Tag = enum {
+            type_annotation,
+        };
+
+        data: union(Tag) {
+            type_annotation: struct {
+                name: []const u8,
+                id: []const u8,
+            },
+        },
+    };
 
     pub fn init(allocator: Allocator, payload: NodePayload) !*Node {
         var node = try allocator.create(Node);
@@ -648,17 +726,12 @@ test "test NodePayload.get_kind(return_expr)" {
 
 test "test Ast.expr_primary(int2)" {
     // const allocator = std.testing.allocator;
-    // const ast = Ast{
-    //     .allocator = allocator,
-    //     .tokens = ArrayList(Token).init(allocator),
-    //     .current = 0,
-    //     .src = "0b101010",
-    // };
+    const allocator = std.heap.page_allocator;
 
-    // const pnodes = Ast.generate(allocator, ast.src) catch |err| {
-    //     std.debug.print("Error generating AST: {}\n", .{err});
-    //     return;
-    // };
+    const src = "let x: MyInt;";
+    const ast = try Ast.generate(allocator, src);
+
+    try std.testing.expectEqual(NodeTag.let_decl, ast.items[0].?.payload.get_tag());
 
     // try std.testing.expectEqual(1, pnodes.items.len);
 }
