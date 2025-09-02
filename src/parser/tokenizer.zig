@@ -55,6 +55,7 @@ pub const Token = struct {
         xor,
         xor_equal,
         rem,
+        backslash,
 
         shift_left,
         shift_right,
@@ -84,6 +85,7 @@ pub const Token = struct {
         set_t,
         setq_t,
         setf_t,
+        loop_t,
 
         identifier,
         string,
@@ -119,6 +121,7 @@ pub const Token = struct {
         .{ "set", .set_t },
         .{ "setq", .setq_t },
         .{ "setf", .setf_t },
+        .{ "loop", .loop_t },
     });
 };
 
@@ -195,7 +198,7 @@ pub const Tokenizer = struct {
                         }
                         tk.tag = .int10;
                     },
-                    '!', '+', '-', '*', '/', '^', '=', '|', '>', '<' => continue :state .logical,
+                    '!', '+', '-', '*', '/', '\\', '^', '=', '|', '>', '<' => continue :state .logical,
                     '(', ')', '[', ']', '{', '}' => continue :state .enclosure,
                     ',', '.', ';', ':', '?' => continue :state .punct,
                     0 => {
@@ -355,6 +358,10 @@ pub const Tokenizer = struct {
                             },
                             else => tk.tag = .slash,
                         }
+                    },
+                    '\\' => {
+                        _ = self.advance();
+                        tk.tag = .backslash;
                     },
                     '|' => {
                         _ = self.advance();
@@ -566,7 +573,7 @@ test "test space between integers" {
 test "test logical" {
     const testing = std.testing;
 
-    const src = "! * + - | / < > = == != >= <= *= /= |= -= += << >> ^=";
+    const src = "! * + - | / < > = == != >= <= *= /= |= -= += << >> ^= \\";
 
     var tkz = Tokenizer.init(src);
     const tk1 = tkz.next().?;
@@ -591,6 +598,7 @@ test "test logical" {
     const tk20 = tkz.next().?;
     const tk21 = tkz.next().?;
     const tk22 = tkz.next().?;
+    const tk23 = tkz.next().?;
 
     try testing.expectEqual(Token.Tag.bang, tk1.tag);
     try testing.expectEqual(Token.Tag.star, tk2.tag);
@@ -613,7 +621,8 @@ test "test logical" {
     try testing.expectEqual(Token.Tag.shift_left, tk19.tag);
     try testing.expectEqual(Token.Tag.shift_right, tk20.tag);
     try testing.expectEqual(Token.Tag.xor_equal, tk21.tag);
-    try testing.expectEqual(Token.Tag.eof, tk22.tag);
+    try testing.expectEqual(Token.Tag.backslash, tk22.tag);
+    try testing.expectEqual(Token.Tag.eof, tk23.tag);
 }
 
 test "test enclosure" {
@@ -680,7 +689,7 @@ test "test reject comments" {
 test "test keywords" {
     const testing = std.testing;
 
-    const src = "for if while f0r defun case set setq setf";
+    const src = "for if while f0r defun case set setq setf loop";
 
     var tkz = Tokenizer.init(src);
     const tk_for = tkz.next().?;
@@ -692,6 +701,7 @@ test "test keywords" {
     const tk_set = tkz.next().?;
     const tk_setq = tkz.next().?;
     const tk_setf = tkz.next().?;
+    const tk_loop = tkz.next().?;
     const eof = tkz.next().?;
 
     try testing.expectEqual(Token.Tag.for_t, tk_for.tag);
@@ -703,6 +713,7 @@ test "test keywords" {
     try testing.expectEqual(Token.Tag.set_t, tk_set.tag);
     try testing.expectEqual(Token.Tag.setq_t, tk_setq.tag);
     try testing.expectEqual(Token.Tag.setf_t, tk_setf.tag);
+    try testing.expectEqual(Token.Tag.loop_t, tk_loop.tag);
     try testing.expectEqual(Token.Tag.eof, eof.tag);
 }
 
