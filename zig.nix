@@ -2,14 +2,16 @@
   stdenv,
   fetchzip,
 }:
-
+let
+  version = "0.15.1";
+in
 stdenv.mkDerivation {
   pname = "zig-bin";
-  version = "0.14.1";
+  version = "${version}";
 
   src = fetchzip {
-    url = "https://ziglang.org/download/0.14.1/zig-x86_64-linux-0.14.1.tar.xz";
-    hash = "sha256-4DtFNXBw+dDE6xClV+NFOTMn5Fn0g19i3mpE/bN4Qyk=";
+    url = "ziglang.org/download/${version}/zig-x86_64-linux-${version}.tar.xz";
+    hash = "sha256-4IDg2hjtCLT5QyzVCiYCy7Hg541tWv7ZAOVJHBQRWXk=";
   };
 
   phases = [

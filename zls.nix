@@ -2,14 +2,16 @@
   stdenv,
   fetchzip,
 }:
-
+let
+  version = "0.15.0";
+in
 stdenv.mkDerivation {
   pname = "zls-bin";
-  version = "0.14.0";
+  version = "${version}";
 
   src = fetchzip {
-    url = "https://builds.zigtools.org/zls-linux-x86_64-0.14.0.tar.xz";
-    hash = "sha256-8SwZ8BqqjB15bXhimWUqfWiQogmS0twbvehqVLzR7dw=";
+    url = "https://builds.zigtools.org/zls-x86_64-linux-${version}.tar.xz";
+    hash = "sha256-GtLRQuS8Jw8ltVT5mpZxmfAewQu5eXmk8d0Gh5ROtMk=";
     stripRoot = false;
   };
 

@@ -70,11 +70,7 @@
         {
           default = (
             import ./shell.nix {
-              inherit mkShell;
-              inherit zig-dev;
-              inherit zls-dev;
-              inherit wakatime;
-              inherit tree-sitter-zig;
+              inherit pkgs;
             }
           );
         }
